@@ -14,9 +14,13 @@ include_directories( ${OpenCV_INCLUDE_DIRS} )
 find_package( Sophus REQUIRED )
 include_directories( ${Sophus_INCLUDE_DIRS} )
 
+# pangolin
+find_package(Pangolin REQUIRED)
+include_directories(${Pangolin_INCLUDE_DIRS} )
 set( THIRD_PARTY_LIBS 
     ${OpenCV_LIBS}
     ${Sophus_LIBRARIES}
+${Pangolin_LIBRARIES}
 )
 
 add_executable( dense_mapping dense_mapping.cpp )

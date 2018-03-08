@@ -9,6 +9,7 @@ set( CMAKE_CXX_FLAGS "-std=c++11 -march=native -O3 -fopenmp" )
 include_directories( "/usr/include/eigen3" )
 # OpenCV
 find_package( OpenCV 3.1 REQUIRED )
+# find_package(OpenCV 2.4.13 QUIET)
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 # Sophus 
 find_package( Sophus REQUIRED )

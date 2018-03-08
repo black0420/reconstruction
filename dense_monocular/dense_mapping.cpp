@@ -4,7 +4,8 @@
 using namespace std; 
 #include <boost/timer.hpp>
 #include <pangolin/pangolin.h>
-
+#include <cstdio>
+#include <cstdlib>
 // for sophus 
 #include <sophus/se3.h>
 using Sophus::SE3;
@@ -13,9 +14,12 @@ using Sophus::SE3;
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 // #include <Eigen/Matrix>
+#include <opencv2/opencv.hpp>
 
 using namespace Eigen;
-
+#include <highgui.h>
+#include <cv.h>
+#include <cxcore.h>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -49,9 +53,7 @@ const double max_cov = 10;	// 发散判定：最大方差
     static cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
 
 void DrawMapPoints (
-    const SE3& T_C_R,
-    vector<Point3d>& points, 
-		       vector<DMatch>& matches);
+    vector<Vec3f>& points);
 
 void find_feature_matches (
     const Mat& img_1, const Mat& img_2,
@@ -163,14 +165,9 @@ void showEpipolarLine( const Mat& ref, const Mat& curr, const Vector2d& px_ref, 
 // ------------------------------------------------------------------
 
 
-int main( int argc, char** argv )
+int main(  )
 {
-    if ( argc != 2 )
-    {
-        cout<<"Usage: dense_mapping path_to_test_dataset"<<endl;
-        return -1;
-    }
-    
+    /*
     // 从数据集读取数据
     vector<string> color_image_files; 
     vector<SE3> poses_TWC;
@@ -231,11 +228,97 @@ int main( int argc, char** argv )
         cout<<"point reprojected from second frame: "<<pt2_trans.t()<<endl;
         cout<<endl;
     }
-        imshow("image", curr);
-        waitKey(1);
-    }
+    
+    }*/
 
-    cout<<"done."<<endl;
+    Mat left = imread("/home/fubo/reconstruction/first",  IMREAD_GRAYSCALE );  
+    Mat right = imread("/home/fubo/reconstruction/second",  IMREAD_GRAYSCALE );  
+    Mat disp;  
+ 
+ 
+
+//     Mat R1, R2, P1, P2, Q;
+// Rect roi1, roi2;
+// stereoRectify(M1, D1, M2, D2, imageSize, R, T, R1, R2, P1, P2, Q,
+// CALIB_ZERO_DISPARITY, 0, imageSize, &roi1, &roi2);
+//     stereoRectify
+//     
+//     cv::reprojectImageTo3D(displf, img3d, Q, true);  
+    
+    int mindisparity = 0;  
+    int ndisparities = 64;    
+    int SADWindowSize = 11;   
+  
+//     SGBM  
+    cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(mindisparity, ndisparities, SADWindowSize);  
+    int P1 = 8 * left.channels() * SADWindowSize* SADWindowSize;  
+    int P2 = 32 * left.channels() * SADWindowSize* SADWindowSize;  
+    sgbm->setP1(P1);  
+    sgbm->setP2(P2);  
+  
+    sgbm->setPreFilterCap(15);  
+    sgbm->setUniquenessRatio(10);  
+    sgbm->setSpeckleRange(2);  
+    sgbm->setSpeckleWindowSize(100);  
+    sgbm->setDisp12MaxDiff(1);  
+//     sgbm->setMode(cv::StereoSGBM::MODE_HH);  
+  
+    sgbm->compute(left, right, disp);  
+  
+    disp.convertTo(disp, CV_32F, 1.0 / 16);                //除以16得到真实视差值  
+    Mat disp8U = Mat(disp.rows, disp.cols, CV_8UC1);       //显示  
+    normalize(disp, disp8U, 0, 255, NORM_MINMAX, CV_8UC1);  
+//      imshow("left", left);  
+//     imshow("right", right);  
+//    imshow("disparity", disp8U);  
+// waitKey();
+    imwrite("/home/fubo/reconstruction/SGBM.jpeg", disp8U);  
+  
+
+
+// double _Q[] = { 1., 0., 0., -3.2554532241821289e+002, 0., 1., 0., -2.4126087760925293e+002, 0., 0., 0., 4.2440051858596559e+002, 0., 0., -2.9937622423123672e-001, 0. }; 
+
+Mat Q = (Mat_<double>(4, 4) << 1., 0., 0., -3.2554532241821289e+002, 0., 1., 0., -2.4126087760925293e+002, 0., 0., 0., 4.2440051858596559e+002, 0., 0., -2.9937622423123672e-001, 0. ); 
+
+// CvMat Q=cvMat(4, 4, CV_64FC1, _Q);  
+
+
+
+
+ Mat_<double> _3dImg(disp8U.size());
+ Mat newMat;
+
+        CvMat cvdisp = disp8U; 
+	CvMat cv_3dImg = _3dImg; 
+	CvMat cvQ = Q;
+        cv::reprojectImageTo3D( disp8U, newMat, Q,true,-1 );
+
+    Point3d  Point;
+    vector<Vec3f> pointArray;
+int y;
+
+ const double max_z = 1.0e4;
+ 
+      const string& filename =  "reproject_pcd.txt";
+     std::FILE* fp = std::fopen(filename.c_str(), "wt");
+
+ 
+     for(int y = 0; y < newMat.rows; y++){
+        for(int x = 0; x < newMat.cols; x++){
+           Vec3f point = newMat.at<Vec3f>(y, x);
+           if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
+	   if(point[2]>300)continue;
+	              fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+
+//         cout<< point[0]<< point[1]<< point[2]<<endl;
+	pointArray.push_back(point);
+
+        }
+     }
+             cout<<pointArray.size()<<endl;
+
+//         DrawMapPoints(pointArray);
+
     
     return 0;
 }
@@ -634,9 +717,9 @@ Point2f pixel2cam ( const Point2d& p, const Mat& K )
     );
 }
 void DrawMapPoints (
-    const SE3& T_C_R,
-    vector<Point3d>& points, 
-		       vector<DMatch>& matches )
+ 
+    vector<Vec3f>& points
+		      )
 {
     pangolin::CreateWindowAndBind("单目三维重建",1024,768);
   // 3D Mouse handler requires depth testing to be enabled
@@ -679,42 +762,42 @@ void DrawMapPoints (
     {
         // 清除缓冲区中的当前可写的颜色缓冲 和 深度缓冲
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
- Vector3d twc = T_C_R.translation();
-    Matrix3d Rwc = T_C_R.rotation_matrix() ; 
-       M.m[0] = Rwc(0,0);
-        M.m[1] =Rwc(1,0);
-        M.m[2] = Rwc(2,0);
-        M.m[3]  = 0.0;
-
-        M.m[4] = Rwc(0,1);
-        M.m[5] =Rwc(1,1);
-        M.m[6] = Rwc(2,1);
-        M.m[7]  = 0.0;
-
-        M.m[8] = Rwc(0,2);
-        M.m[9] = Rwc(1,2);
-        M.m[10] = Rwc(2,2);
-        M.m[11]  = 0.0;
-
-        M.m[12] = twc[0];
-        M.m[13] = twc[1];
-        M.m[14] = twc[2];
-        M.m[15]  = 1.0;
-
-
-        // 步骤2：根据相机的位姿调整视角
-        // menuFollowCamera为按钮的状态，bFollow为真实的状态
-        if(menuFollowCamera )
-        {
-            s_cam.Follow(M);
-        }
-        else if(menuFollowCamera )
-        {
+//  Vector3d twc = T_C_R.translation();
+//     Matrix3d Rwc = T_C_R.rotation_matrix() ; 
+//        M.m[0] = Rwc(0,0);
+//         M.m[1] =Rwc(1,0);
+//         M.m[2] = Rwc(2,0);
+//         M.m[3]  = 0.0;
+// 
+//         M.m[4] = Rwc(0,1);
+//         M.m[5] =Rwc(1,1);
+//         M.m[6] = Rwc(2,1);
+//         M.m[7]  = 0.0;
+// 
+//         M.m[8] = Rwc(0,2);
+//         M.m[9] = Rwc(1,2);
+//         M.m[10] = Rwc(2,2);
+//         M.m[11]  = 0.0;
+// 
+//         M.m[12] = twc[0];
+//         M.m[13] = twc[1];
+//         M.m[14] = twc[2];
+//         M.m[15]  = 1.0;
+// 
+// 
+//         // 步骤2：根据相机的位姿调整视角
+//         // menuFollowCamera为按钮的状态，bFollow为真实的状态
+//         if(menuFollowCamera )
+//         {
+//             s_cam.Follow(M);
+//         }
+//         else if(menuFollowCamera )
+//         {
             s_cam.SetModelViewMatrix(pangolin::ModelViewLookAt(0,-0.7,-1.8, 0,0,0,0.0,-1.0, 0.0));
-            s_cam.Follow(M);
-        }
-     
-
+//             s_cam.Follow(M);
+//         }
+//      
+// 
         d_cam.Activate(s_cam);
         // 步骤3：绘制地图和图像
 	
@@ -724,10 +807,11 @@ void DrawMapPoints (
       glPointSize(1);
     glBegin(GL_POINTS);
     glColor3d(0.0,0.0,0.0);
- for ( int i=0; i<matches.size(); i++ )
-    {
-         glVertex3d( points[i].x, points[i].y,points[i].z);
-  
+ for ( int i=0; i<points.size(); i=i+50 )
+    {Vec3f pointxyz=points[i];
+         glVertex3d( pointxyz[0], pointxyz[1],pointxyz[2]);
+          cout<< pointxyz[0]<< pointxyz[1]<< pointxyz[2]<<endl;
+
     }
         glEnd();
 
@@ -739,18 +823,26 @@ void DrawMapPoints (
   
   
 }
-// cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m)
-// {
-//     cv::Mat cvMat(4,4,CV_32F);
-//     for(int i=0;i<4;i++)
-//         for(int j=0; j<4; j++)
-//             cvMat.at<float>(i,j)=m(i,j);
-// 
-//     return cvMat.clone();
-// }
-// 
-// cv::Mat toCvMat(const SE3 &SE3)
-// {
-//     Eigen::Matrix<double,4,4> eigMat = SE3.to_homogeneous_matrix();
-//     return toCvMat(eigMat);
-// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
