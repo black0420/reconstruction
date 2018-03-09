@@ -87,6 +87,7 @@ CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/inc
 CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/cvdef.h
 CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/cvstd.hpp
 CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/cvstd.inl.hpp
+CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/eigen.hpp
 CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/fast_math.hpp
 CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/hal/interface.h
 CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o: /home/fubo/maplab_ws/devel/include/opencv2/core/mat.hpp

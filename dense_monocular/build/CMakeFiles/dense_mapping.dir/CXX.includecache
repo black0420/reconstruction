@@ -888,6 +888,10 @@ complex
 ostream
 -
 
+/home/fubo/maplab_ws/devel/include/opencv2/core/eigen.hpp
+opencv2/core.hpp
+/home/fubo/maplab_ws/devel/include/opencv2/core/opencv2/core.hpp
+
 /home/fubo/maplab_ws/devel/include/opencv2/core/fast_math.hpp
 opencv2/core/cvdef.h
 /home/fubo/maplab_ws/devel/include/opencv2/core/opencv2/core/cvdef.h
@@ -2013,6 +2017,8 @@ fstream
 -
 boost/timer.hpp
 -
+boost/concept_check.hpp
+-
 pangolin/pangolin.h
 -
 cstdio
@@ -2021,9 +2027,13 @@ cstdlib
 -
 sophus/se3.h
 -
+opencv2/core/eigen.hpp
+-
 Eigen/Core
 -
 Eigen/Geometry
+-
+opencv2/core/eigen.hpp
 -
 opencv2/opencv.hpp
 -

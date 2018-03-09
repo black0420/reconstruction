@@ -88,6 +88,7 @@ CMakeFiles/dense_mapping.dir/dense_mapping.cpp.o
  /home/fubo/maplab_ws/devel/include/opencv2/core/cvdef.h
  /home/fubo/maplab_ws/devel/include/opencv2/core/cvstd.hpp
  /home/fubo/maplab_ws/devel/include/opencv2/core/cvstd.inl.hpp
+ /home/fubo/maplab_ws/devel/include/opencv2/core/eigen.hpp
  /home/fubo/maplab_ws/devel/include/opencv2/core/fast_math.hpp
  /home/fubo/maplab_ws/devel/include/opencv2/core/hal/interface.h
  /home/fubo/maplab_ws/devel/include/opencv2/core/mat.hpp

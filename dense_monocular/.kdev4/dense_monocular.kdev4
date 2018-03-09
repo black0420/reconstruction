@@ -12,7 +12,7 @@ Build Type=Debug
 CMake Binary=file:///usr/bin/cmake
 Environment Profile=
 Extra Arguments=
-Install Directory=
+Install Directory=file:///usr/local
 
 [Launch]
 Launch Configurations=Launch Configuration 0
@@ -24,7 +24,7 @@ Name=dense_mapping
 Type=Native Application
 
 [Launch][Launch Configuration 0][Data]
-Arguments=
+Arguments=/home/fubo/dataset/rpg_open_remode/test_data
 Dependencies=@Variant(\x00\x00\x00\t\x00\x00\x00\x00\x01\x00\x00\x00\x0b\x00\x00\x00\x00\x02\x00\x00\x00\x1e\x00d\x00e\x00n\x00s\x00e\x00_\x00m\x00o\x00n\x00o\x00c\x00u\x00l\x00a\x00r\x00\x00\x00\x1a\x00d\x00e\x00n\x00s\x00e\x00_\x00m\x00a\x00p\x00p\x00i\x00n\x00g)
 Dependency Action=Build
 EnvironmentGroup=default
