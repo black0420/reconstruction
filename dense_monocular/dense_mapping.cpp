@@ -46,6 +46,7 @@ using namespace cv;
 * 
     需要rectify，然后用SGBM求出视差，三角化得到三维坐标。
 ***********************************************/
+int getDisparityImage(cv::Mat& disparity, cv::Mat& disparityImage, bool isColor)  ;
 
 void DrawMapPoints (
     vector<Vec3f>& points);
@@ -61,6 +62,7 @@ bool readDatasetFiles(
    static cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
     static cv::Mat toCvMat(const Eigen::Matrix3d &m);
     static cv::Mat toCvMat(const Eigen::Matrix<double,3,1> &m);
+        static cv::Mat toCvSE3(const Eigen::Matrix<double, 3, 3> &R, const Eigen::Matrix<double, 3, 1> &t);
 
 int main( int argc, char** argv )
 {
@@ -77,20 +79,14 @@ int main( int argc, char** argv )
     cout<<"read total "<<color_image_files.size()<<" files."<<endl;
     
 //     第一张图
-    Mat ref = imread( color_image_files[0], CV_LOAD_IMAGE_UNCHANGED);                // CV_LOAD_IMAGE_COLOR
-    SE3 pose_ref_TWC = poses_TWC[0];
+//     Mat ref = imread( color_image_files[0], CV_LOAD_IMAGE_UNCHANGED);                // CV_LOAD_IMAGE_COLOR
+        Mat ref = imread( "/home/fubo/reconstruction/dataset/jiao/0055.png", CV_LOAD_IMAGE_UNCHANGED);                // CV_LOAD_IMAGE_COLOR
     
     //第二张图
-        Mat curr = imread( color_image_files[57], CV_LOAD_IMAGE_UNCHANGED );      
-        SE3 pose_curr_TWC = poses_TWC[57];
-	
-	
-//         SE3 pose_T_C_R = pose_curr_TWC.inverse() * pose_ref_TWC; // 坐标转换关系： T_C_W * T_W_R = T_C_R
-	        SE3 pose_T_C_R = pose_ref_TWC.inverse() * pose_curr_TWC; // 坐标转换关系： T_C_W * T_W_R = T_C_R
-
-        
+            Mat curr = imread("/home/fubo/reconstruction/dataset/jiao/0056.png", CV_LOAD_IMAGE_UNCHANGED );      
+     
         //获得图片和位姿之后 读内参
-        FileStorage fs("/home/fubo/reconstruction/dataset/intrinsics.yml",CV_STORAGE_READ);
+        FileStorage fs("/home/fubo/reconstruction/dataset/jiao/intrinsics.yml",CV_STORAGE_READ);
 
 		Mat  _M1, _D1, _M2, _D2;
 		fs["M1"] >> _M1;
@@ -98,19 +94,30 @@ int main( int argc, char** argv )
 		fs["M2"] >> _M2;
 		fs["D2"] >> _D2;
 		
-// 		cout<<_D1<<endl;
-		 Vector3d _T = pose_T_C_R.translation();
-		 Matrix3d _R = pose_T_C_R.rotation_matrix();
-
-		Mat R,T;
-
+		 //读外参
+  Matrix3d Rcw1; // Current Camera Rotation
+			Vector3d tcw1; // Current Camera Translation
+			  Rcw1 << 0.04802580, -0.96432000, -0.26034800, 0.99529700, 0.02424890, 0.09378320, -0.08412380, -0.26362800, 0.96094900;  
+			  tcw1<<177.08100000, 187.89500000, 621.80700000;			  
+    SE3 pose_ref_TWC = SE3(Rcw1,tcw1);
+    
+         Matrix3d Rcw2; // Current Camera Rotation
+			Vector3d tcw2; // Current Camera Translation
+			  Rcw2 << 0.04802580, -0.96432000, -0.26034800, 0.99529700, 0.02424890, 0.09378320, -0.08412380, -0.26362800, 0.96094900; 
+			  tcw2<<77.10210000, 186.45800000, 620.24200000;
+    SE3 pose_curr_TWC = SE3(Rcw2,tcw2);
+    
+    
+           SE3 pose_T_C_R = pose_curr_TWC * pose_ref_TWC.inverse(); // 坐标转换关系： T_C_W * T_W_R = T_C_R		
+				 Vector3d _T = pose_T_C_R.translation();
+		 Matrix3d _R = pose_T_C_R.rotation_matrix();		
+		Mat R,T;		
 		    Mat R1;
 		    Mat R2;
 		    Mat P1;
                     Mat abb3;
 		R=toCvMat(_R);
 		T=toCvMat(_T);
-
 	int rows_l=ref.rows;
 	int cols_l=ref.cols;
 	Rect roi1, roi2;
@@ -121,8 +128,9 @@ int main( int argc, char** argv )
 	  T.convertTo(t, CV_64F);
 cout <<r<<endl;
 cout<<t<<endl;
-cv::stereoRectify( _M1, _D1,_M2, _D2, cv::Size(cols_l,rows_l), r, t, R1, R2, P1, abb3, Q);
-// 	  cv::stereoRectify( _M1, _D1,_M2, _D2, cv::Size(cols_l,rows_l), r, t, R1, R2, P1, abb3, Q,CALIB_ZERO_DISPARITY, 0,  cv::Size(cols_l,rows_l), &roi1, &roi2);
+
+cv::stereoRectify( _M1, _D1,_M2, _D2, cv::Size(cols_l,rows_l), r, -t, R1, R2, P1, abb3, Q);
+// 	  cv::stereoRectify( _M1, _D1,_M2, _D2, cv::Size(cols_l,rows_l), r, t, R1, R2, P1, abb3, Q,CALIB_ZERO_DISPARITY, 1,  cv::Size(cols_l,rows_l), &roi1, &roi2);
 
 
     Mat map11;  
@@ -133,103 +141,119 @@ cv::stereoRectify( _M1, _D1,_M2, _D2, cv::Size(cols_l,rows_l), r, t, R1, R2, P1,
 		cv::initUndistortRectifyMap(_M1,_D1, R1, P1.rowRange(0,3).colRange(0,3), cv::Size(cols_l,rows_l),CV_32F,map11, map12);
 		cv::initUndistortRectifyMap(_M2,_D2, R2, abb3.rowRange(0,3).colRange(0,3), cv::Size(cols_l,rows_l),CV_32F,map21, map22);
 		
-		Mat left;
-		Mat right;
+// 		Mat left;
+// 		Mat right;
+// // 
+// 		  cv::remap(ref, left, map11, map12,cv::INTER_LINEAR);
+// 		  cv::remap(curr, right, map21, map22,cv::INTER_LINEAR);
+
+		   Mat img1 = imread("/home/fubo/reconstruction/dataset/jiao/0055.png"), left;
+		    Mat img2 = imread("/home/fubo/reconstruction/dataset/jiao/0056.png"), right;
+
+		Mat img( rows_l,cols_l * 2, CV_8UC3);//高度一样，宽度双倍
+		imshow("rectified", img);
 		
-		  cv::remap(ref, left, map11, map12,cv::INTER_LINEAR);
-		  cv::remap(curr, right, map21, map22,cv::INTER_LINEAR);
-		  
-// 		   Mat img1 = imread(color_image_files[0]), img1r;
-// 		    Mat img2 = imread(color_image_files[55]), img2r;
-// 
-// 		Mat img( rows_l,cols_l * 2, CV_8UC3);//高度一样，宽度双倍
-// 		imshow("rectified", img);
-// 		
-// 		remap(img1, img1r, map11, map12, cv::INTER_LINEAR);//左校正
-//     remap(img2, img2r, map21,map22, cv::INTER_LINEAR);//右校正
-//     
-//     
-//     
-// 			      Mat imgPart1 = img( Rect(0, 0,cols_l,rows_l) );//浅拷贝
-// 		Mat imgPart2 = img( Rect(cols_l, 0, cols_l,rows_l) );//浅拷贝
-// 		resize(img1r, imgPart1, imgPart1.size(), 0, 0, CV_INTER_AREA);
-// 		resize(img2r, imgPart2, imgPart2.size(), 0, 0, CV_INTER_AREA);
-// 
-//     //画横线
-//     for( int i = 0; i < img.rows; i += 32 )
-//         line(img, Point(0, i), Point(img.cols, i), Scalar(0, 255, 0), 1, 8);
-// 
-//     //显示行对准的图形
-//     Mat smallImg;//由于我的分辨率1:1显示太大，所以缩小显示
-//     resize(img, smallImg, Size(), 0.8, 0.8, CV_INTER_AREA);
-//     imshow("rectified", smallImg);
+		remap(img1, left, map11, map12, cv::INTER_LINEAR);//左校正
+    remap(img2, right, map21,map22, cv::INTER_LINEAR);//右校正
+
+			      Mat imgPart1 = img( Rect(0, 0,cols_l,rows_l) );//浅拷贝
+		Mat imgPart2 = img( Rect(cols_l, 0, cols_l,rows_l) );//浅拷贝
+		resize(left, imgPart1, imgPart1.size(), 0, 0, CV_INTER_AREA);
+		resize(right, imgPart2, imgPart2.size(), 0, 0, CV_INTER_AREA);
+
+    //画横线
+    for( int i = 0; i < img.rows; i += 32 )
+        line(img, Point(0, i), Point(img.cols, i), Scalar(0, 255, 0), 1, 8);
+
+    //显示行对准的图形
+    Mat smallImg;//由于我的分辨率1:1显示太大，所以缩小显示
+    resize(img, smallImg, Size(), 0.8, 0.8, CV_INTER_AREA);
+    imshow("rectified", smallImg);
 		  
 /*    
     Mat left = imread("/home/fubo/reconstruction/dataset/first",  IMREAD_GRAYSCALE );  
     Mat right = imread("/home/fubo/reconstruction/dataset/second",  IMREAD_GRAYSCALE );  */
+
+//sgbm 算法
     Mat disp;  
- 
-    
-    int mindisparity = 0;  
-    int ndisparities = 64;    
-    int SADWindowSize = 11;   
-  
+
+    int mindisparity = -15;  
+//     int ndisparities = 64;  
+        int ndisparities = 144;    
+
+//     int SADWindowSize = 11;   
+        int SADWindowSize = 11;   
+
 //     SGBM  
     cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(mindisparity, ndisparities, SADWindowSize);  
-    int P11 = 8 * left.channels() * SADWindowSize* SADWindowSize;  
+//     int P11 = 8 * left.channels() * SADWindowSize* SADWindowSize;  
+        int P11 = 4 * left.channels() * SADWindowSize* SADWindowSize;  
+
     int P22 = 32 * left.channels() * SADWindowSize* SADWindowSize;  
     sgbm->setP1(P11);  
     sgbm->setP2(P22);  
   
-    sgbm->setPreFilterCap(15);  
-    sgbm->setUniquenessRatio(10);  
-    sgbm->setSpeckleRange(2);  
-    sgbm->setSpeckleWindowSize(100);  
+//     sgbm->setPreFilterCap(15);  
+        sgbm->setPreFilterCap(30);  
+
+    sgbm->setUniquenessRatio(2);  
+//         sgbm->setUniquenessRatio(15);  
+
+        sgbm->setSpeckleRange(2);  
+
+//     sgbm->setSpeckleWindowSize(100);  
+        sgbm->setSpeckleWindowSize(10);  
+
     sgbm->setDisp12MaxDiff(1);  
+    
 //     sgbm->setMode(cv::StereoSGBM::MODE_HH);  
-  
     sgbm->compute(left, right, disp);  
   
     disp.convertTo(disp, CV_32F, 1.0 / 16);                //除以16得到真实视差值  
+    
     Mat disp8U = Mat(disp.rows, disp.cols, CV_8UC1);       //显示  
+        Mat disp8U2 = Mat(disp.rows, disp.cols, CV_8UC1);       //显示  
+
     normalize(disp, disp8U, 0, 255, NORM_MINMAX, CV_8UC1);  
-     imshow("left", left);  
-    imshow("right", right);  
-   imshow("disparity", disp8U);  
+    getDisparityImage(disp8U,disp8U2,1);
+    
+//      imshow("left", left);  
+//     imshow("right", right);  
+   imshow("disparity", disp8U2);  
 waitKey();
-    imwrite("/home/fubo/reconstruction/SGBM.jpeg", disp8U);  
-  
+    imwrite("/home/fubo/reconstruction/SGBM.jpeg", disp8U2);  
 
- Mat newMat;
-        cv::reprojectImageTo3D( disp, newMat, Q,true,-1 );
-
-    Point3d  Point;
-    vector<Vec3f> pointArray;
-int y;
-
- const double max_z = 1.0e4;
+//  Mat newMat;
+//         cv::reprojectImageTo3D( disp8U, newMat, Q,true,-1 );
  
-      const string& filename =  "reproject_pcd.txt";
+     const string& filename =  "reproject_pcd.txt";
      std::FILE* fp = std::fopen(filename.c_str(), "wt");
 
- 
-     for(int y = 0; y < newMat.rows; y++){
-        for(int x = 0; x < newMat.cols; x++){
-           Vec3f point = newMat.at<Vec3f>(y, x);
-           if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
+     
+     cv::Mat_ <float> Q_=Q;
+   cout<<"q"<<Q<<endl;
+     
+      const double max_z = 10000;
+     cv::Mat_<cv::Vec3f> XYZ(disp.rows,disp.cols);   // Output point cloud
+cv::Mat_<float> vec_tmp(4,1);
+for(int y=0; y<disp.rows; ++y) {
+    for(int x=0; x<disp.cols; ++x) {
+        vec_tmp(0)=x; 
+	vec_tmp(1)=y; 
+	vec_tmp(2)=disp.at<float>(y,x); 
+	vec_tmp(3)=1;
+        vec_tmp = Q_*vec_tmp;
+        vec_tmp /= vec_tmp(3);
+        cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
+        point[0] = vec_tmp(0);
+        point[1] = vec_tmp(1);
+        point[2] = vec_tmp(2);
+	  if(fabs(point[2] - max_z) < FLT_EPSILON || fabs(point[2]) > max_z) continue;
 	   if(point[2]>300)continue;
-	              fprintf(fp, "%f %f %f\n", point[0], -point[1], point[2]);
-
-//         cout<< point[0]<< point[1]<< point[2]<<endl;
-	pointArray.push_back(point);
-
-        }
-     }
-             cout<<pointArray.size()<<endl;
-
-//         DrawMapPoints(pointArray);
-
-    
+	              fprintf(fp, "%f %f %f\n", point[0], point[1], point[2]);
+    }
+}
+     fclose(fp);
     return 0;
 }
 
@@ -386,3 +410,67 @@ cv::Mat toCvMat(const Eigen::Matrix<double,3,1> &m)
 
     return cvMat.clone();
 }
+ cv::Mat toCvSE3(const Eigen::Matrix<double, 3, 3> &R, const Eigen::Matrix<double, 3, 1> &t) {
+        cv::Mat cvMat = cv::Mat::eye(4, 4, CV_32F);
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                cvMat.at<float>(i, j) = R(i, j);
+            }
+        }
+        for (int i = 0; i < 3; i++) {
+            cvMat.at<float>(i, 3) = t(i);
+        }
+
+        return cvMat.clone();
+    }
+
+int getDisparityImage(cv::Mat& disparity, cv::Mat& disparityImage, bool isColor)  
+{  
+    // 将原始视差数据的位深转换为 8 位  
+    cv::Mat disp8u;  
+    if (disparity.depth() != CV_8U)  
+    {  
+        disparity.convertTo(disp8u, CV_8U, 255/(64*16.));  
+    }   
+    else  
+    {  
+        disp8u = disparity;  
+    }  
+  
+  
+    // 转换为伪彩色图像 或 灰度图像  
+    if (isColor)  
+    {  
+        if (disparityImage.empty() || disparityImage.type() != CV_8UC3 )  
+        {  
+            disparityImage = cv::Mat::zeros(disparity.rows, disparity.cols, CV_8UC3);  
+        }  
+  
+  
+        for (int y=0;y<disparity.rows;y++)  
+        {  
+            for (int x=0;x<disparity.cols;x++)  
+            {  
+                uchar val = disp8u.at<uchar>(y,x);  
+                uchar r,g,b;  
+  
+  
+                if (val==0)   
+                    r = g = b = 0;  
+                else  
+                {  
+                    r = 255-val;  
+                    g = val < 128 ? val*2 : (uchar)((255 - val)*2);  
+                    b = val;  
+                }  
+                disparityImage.at<cv::Vec3b>(y,x) = cv::Vec3b(r,g,b);  
+            }  
+        }  
+    }   
+    else  
+    {  
+        disp8u.copyTo(disparityImage);  
+    }  
+  
+    return 1;  
+}  
